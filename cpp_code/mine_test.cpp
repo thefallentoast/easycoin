@@ -13,7 +13,7 @@ struct MineResult {
     uint32_t nonce;
 };
 
-MineResult mine(uint32_t difficulty, uint32_t previous_hash) {
+uint32_t mine(uint32_t difficulty, uint32_t previous_hash) {
     using namespace std::chrono;
 
     auto start_time = steady_clock::now();
@@ -29,9 +29,9 @@ MineResult mine(uint32_t difficulty, uint32_t previous_hash) {
         auto now = steady_clock::now();
         duration<double> elapsed = now - start_time;
         if (elapsed.count() >= 1.0) {
-            double khashrate = hash_count / 1000.0 / elapsed.count();
+            double mhashrate = hash_count / 1000000.0 / elapsed.count();
             std::cout << "Hashrate: " << std::fixed << std::setprecision(3)
-                      << khashrate << " kH/s" << std::endl;
+                      << khashrate << " MH/s" << std::endl;
             // Reset timer and counter
             start_time = now;
             hash_count = 0;
@@ -42,7 +42,7 @@ MineResult mine(uint32_t difficulty, uint32_t previous_hash) {
               << " || Difficulty: 0x" << difficulty 
               << " || Nonce: " << std::dec << nonce << std::endl;
 
-    return {h, nonce};
+    return nonce;
 }
 
 int main() {
