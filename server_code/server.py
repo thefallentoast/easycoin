@@ -1,4 +1,8 @@
-from miner import Miner
-# Note: Make sure to put the .so/.dll file in the same directory as miner.py!
 from protocol import ProtocolHandler
+from flask import Flask, render_template
 
+app = Flask(__name__)
+
+@app.route("/")
+def hello_world():
+    return render_template("index.html") # Change later
