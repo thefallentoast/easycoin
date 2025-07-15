@@ -36,5 +36,3 @@ class Miner:
         print(f"Found nonce: {out_nonce.value}")
         print(f"Hashrate: {out_hashcount.value / (time.time() - start_time) / 1000000} MH/s")
         return (out_nonce.value, out_hash.value, out_hashcount.value)
-    def mine_parallel(self, difficulty, previous_hash) -> tuple[int, int, int]:
-        # TODO
