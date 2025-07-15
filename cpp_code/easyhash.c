@@ -57,7 +57,7 @@ EXPORT uint16_t easyhash_u16(uint16_t last_hash, uint16_t nonce) {
     return eh_b16(state[0] ^ state[1] ^ state[2] ^ state[3]);
 }
 
-EXPORT uint32_t easyhash_u32pair(uint32_t last_hash, uint32_t nonce) {
+EXPORT uint32_t easyhash_u32(uint32_t last_hash, uint32_t nonce) {
     uint32_t state[4] = {0xDEADBEEF, 0xABCDEF01, 0xAA5555AA, 0xC0DE9999};
 
     for (int i = 0; i < 8; i++) {

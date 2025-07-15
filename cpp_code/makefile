@@ -4,12 +4,13 @@ MINGW_CC = x86_64-w64-mingw32-g++
 SHARED = -shared
 
 # Source files
-SRC = mine_test.cpp easyhash.cpp
-SRC_HASH = easyhash.cpp
+SRC = miningloop.cpp easyhash.c
+SRC_HASH = easyhash.c
 
 # Output names
 OUT_LINUX = mining_test
 OUT_WIN = mining_test.exe
+OUT_SO = libeasyhash.so
 OUT_DLL = easyhash.dll
 
 # Compiler flags
@@ -27,6 +28,9 @@ windows:
 
 windowsdll:
 	$(MINGW_CC) $(CFLAGS) $(SHARED) $(SRC_HASH) -o $(OUT_DLL)
+
+linuxso:
+	$(CC) $(CFLAGS) $(SHARED) -fPIC $(SRC) -o $(OUT_SO) 
 
 clean:
 	rm -f $(OUT_LINUX) $(OUT_WIN)
