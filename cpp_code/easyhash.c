@@ -80,6 +80,28 @@ EXPORT uint32_t easyhash_u32(uint32_t last_hash, uint32_t nonce) {
     return eh_b32(state[0] ^ state[1] ^ state[2] ^ state[3]);
 }
 
+EXPORT uint64_t easyhash_u64(uint64_t last_hash, uint64_t nonce) {
+    uint64_t state[4] = {0xDEADBEEFBEEFDEAD, 0xABCDEF0123456789, 0xAAAA55555555AAAA, 0xC0DE012345678900};
+
+    for (int i = 0; i < 16; i++) {
+        uint8_t v = (i < 8) ? ((last_hash >> (8 * i))       & 0xFF)
+                            : ((nonce     >> (8 * (i - 4))) & 0xFF);
+
+        state[0] = (v & state[0]) ^ eh_rol64(v, i & 0x3);
+        state[1] = eh_b64(v * 0x26544357) ^ eh_rol64(state[1], v & i);
+        state[2] = state[2] ^ eh_b64(v * 54435764);
+        state[3] = eh_b64(v * 2654435761) ^ eh_rol64(eh_b64(v ^ 0x88AAAA88AA8888AA), i);
+
+        // Mixing stage
+        state[0] = eh_b32(2654435761UL ^ state[1] * (state[2] & state[3]));
+        state[1] = eh_b32(state[0] * state[2] ^ eh_rol32(state[3], state[1] & 0xF));
+        state[2] = eh_b32(2654435761UL ^ state[3] & (eh_rol32(state[1], state[2] & 0xF)));
+        state[3] = eh_b32(state[3] ^ eh_rol32(2654435761UL, state[2] & 0xF) ^ state[0]);
+    }
+
+    return eh_b64(state[0] ^ state[1] ^ state[2] ^ state[3]);
+}
+
 #ifdef __cplusplus
 }
 #endif

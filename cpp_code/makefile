@@ -27,7 +27,7 @@ windows:
 	$(MINGW_CC) $(CFLAGS) $(SRC) -o $(OUT_WIN) -static-libgcc -static-libstdc++
 
 windowsdll:
-	$(MINGW_CC) $(CFLAGS) $(SHARED) $(SRC_HASH) -o $(OUT_DLL)
+	$(MINGW_CC) $(CFLAGS) $(SHARED) $(SRC) -o $(OUT_DLL) -static-libgcc -static-libstdc++ -static
 
 linuxso:
 	$(CC) $(CFLAGS) $(SHARED) -fPIC $(SRC) -o $(OUT_SO) 

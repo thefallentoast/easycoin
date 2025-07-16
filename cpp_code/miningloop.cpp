@@ -8,8 +8,11 @@
 //#include <chrono>
 #include <iomanip>  // for std::fixed and std::setprecision
 #include <cstdint>
+#include <windows.h>
+#include <cstring>
 #include <thread>
 #include <vector>
+#include <errno.h>
 #include <atomic>
 
 extern "C" struct Result_u32 {
@@ -19,8 +22,16 @@ extern "C" struct Result_u32 {
     std::atomic<uint32_t> hashcount{0};
 };
 
+extern "C" struct Result_u64 {
+    std::atomic<bool> found{false};
+    std::atomic<uint64_t> nonce{0};
+    std::atomic<uint64_t> hash{0xFFFFFFFFFFFFFFFF};
+    std::atomic<uint64_t> hashcount{0};
+};
+
 // Assume you have this function implemented & linked properly
 extern "C" uint32_t easyhash_u32(uint32_t last_hash, uint32_t nonce);
+extern "C" uint64_t easyhash_u64(uint64_t last_hash, uint64_t nonce);
 
 extern "C" void mine_thread_u32(uint32_t difficulty, uint32_t previous_hash, uint32_t start_nonce, uint32_t step, Result_u32& result_u32) {
     //using namespace std::chrono;
@@ -72,9 +83,44 @@ extern "C" EXPORT void mine_u32(uint32_t difficulty, uint32_t previous_hash, uin
     Result_u32 result_u32;
     std::vector<std::thread> threads;
 
+    int hardware_concurrency = std::thread::hardware_concurrency();
+
+    if (num_threads == 0) {
+        num_threads = hardware_concurrency;
+    }
+
     for (uint32_t i = 0; i < num_threads; ++i) {
         // Each thread starts at nonce = i and increments by num_threads (work division)
+        #ifdef __linux__
         threads.emplace_back(mine_thread_u32, difficulty, previous_hash, i, num_threads, std::ref(result_u32));
+        #elif defined(_WIN32)
+        threads.emplace_back([=, &result_u32]() {
+            // Optional: print which thread this is
+            //std::cout << "Thread " << i << " started\n";
+
+            // Set affinity
+            DWORD_PTR mask = 1ull << (i % std::thread::hardware_concurrency());
+            HANDLE handle = GetCurrentThread();
+            SetThreadAffinityMask(handle, mask);
+
+            // Run actual mining logic
+            mine_thread_u32(difficulty, previous_hash, i, num_threads, result_u32);
+            });
+        #endif
+    
+
+#ifdef __linux__
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+
+        CPU_SET(i % hardware_concurrency, &cpuset);
+
+        pthread_t handle = threads.back().native_handle();
+        int rc = pthread_setaffinity_np(handle, sizeof(cpu_set_t), &cpuset);
+        if (rc != 0) {
+            std::cerr << "Failed to set affinity for thread " << i << ": " << std::strerror(rc) << "\n";
+        }
+#endif
     }
 
     // Wait for all threads to finish
