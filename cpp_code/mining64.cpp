@@ -15,26 +15,25 @@
 #include <errno.h>
 #include <atomic>
 
-extern "C" struct Result_u32 {
+extern "C" struct Result_u64 {
     std::atomic<bool> found{false};
-    std::atomic<uint32_t> nonce{0};
-    std::atomic<uint32_t> hash{0xFFFFFFFF};
-    std::atomic<uint32_t> hashcount{0};
+    std::atomic<uint64_t> nonce{0};
+    std::atomic<uint64_t> hash{0xFFFFFFFFFFFFFFFF};
+    std::atomic<uint64_t> hashcount{0};
 };
 
-// Assume you have this function implemented & linked properly
-extern "C" uint32_t easyhash_u32(uint32_t last_hash, uint32_t nonce);
+extern "C" uint64_t easyhash_u64(uint64_t last_hash, uint64_t nonce);
 
-extern "C" void mine_thread_u32(uint32_t difficulty, uint32_t previous_hash, uint32_t start_nonce, uint32_t step, Result_u32& result_u32) {
+extern "C" void mine_thread_u64(uint64_t difficulty, uint64_t previous_hash, uint64_t start_nonce, uint64_t step, Result_u64& result_u64) {
     //using namespace std::chrono;
 
     //auto start_time = steady_clock::now();
-    uint32_t h = 0xDEADBEEF;
-    uint32_t hash_count = 0;
-    uint32_t nonce = start_nonce;
+    uint64_t h = 0xDEADBEEF;
+    uint64_t hash_count = 0;
+    uint64_t nonce = start_nonce;
 
-    while (h > difficulty && !result_u32.found.load() && __builtin_expect(nonce < UINT32_MAX - step, 1)) {
-        h = easyhash_u32(previous_hash, nonce);
+    while (h > difficulty && !result_u64.found.load() && __builtin_expect(nonce < UINT64_MAX - step, 1)) {
+        h = easyhash_u64(previous_hash, nonce);
         hash_count++;
 
         /*auto now = steady_clock::now();
@@ -51,11 +50,11 @@ extern "C" void mine_thread_u32(uint32_t difficulty, uint32_t previous_hash, uin
         nonce += step;
         
     }
-    if (!result_u32.found.exchange(true) && __builtin_expect(nonce < UINT32_MAX - step, 1)) {  // Only first thread to find result sets this
-        result_u32.nonce.store(nonce);
-        result_u32.hash.store(h);
+    if (!result_u64.found.exchange(true) && __builtin_expect(nonce < UINT64_MAX - step, 1)) {  // Only first thread to find result sets this
+        result_u64.nonce.store(nonce);
+        result_u64.hash.store(h);
     }
-    result_u32.hashcount.fetch_add(hash_count); // Add the hashcount to the total
+    result_u64.hashcount.fetch_add(hash_count); // Add the hashcount to the total
     
     return;  // Exit thread once found
 
@@ -70,8 +69,8 @@ extern "C" void mine_thread_u32(uint32_t difficulty, uint32_t previous_hash, uin
     
 }
 
-extern "C" EXPORT void mine_u32(uint32_t difficulty, uint32_t previous_hash, uint32_t num_threads, uint32_t* out_nonce, uint32_t* out_hash, uint32_t* out_hashcount) {
-    Result_u32 result_u32;
+extern "C" EXPORT void mine_u64(uint64_t difficulty, uint64_t previous_hash, uint64_t num_threads, uint64_t* out_nonce, uint64_t* out_hash, uint64_t* out_hashcount) {
+    Result_u64 result_u64;
     std::vector<std::thread> threads;
 
     int hardware_concurrency = std::thread::hardware_concurrency();
@@ -80,12 +79,12 @@ extern "C" EXPORT void mine_u32(uint32_t difficulty, uint32_t previous_hash, uin
         num_threads = hardware_concurrency;
     }
 
-    for (uint32_t i = 0; i < num_threads; ++i) {
+    for (uint64_t i = 0; i < num_threads; ++i) {
         // Each thread starts at nonce = i and increments by num_threads (work division)
         #ifdef __linux__
-        threads.emplace_back(mine_thread_u32, difficulty, previous_hash, i, num_threads, std::ref(result_u32));
+        threads.emplace_back(mine_thread_u64, difficulty, previous_hash, i, num_threads, std::ref(result_u64));
         #elif defined(_WIN32)
-        threads.emplace_back([=, &result_u32]() {
+        threads.emplace_back([=, &result_u64]() {
             // Optional: print which thread this is
             //std::cout << "Thread " << i << " started\n";
 
@@ -95,7 +94,7 @@ extern "C" EXPORT void mine_u32(uint32_t difficulty, uint32_t previous_hash, uin
             SetThreadAffinityMask(handle, mask);
 
             // Run actual mining logic
-            mine_thread_u32(difficulty, previous_hash, i, num_threads, result_u32);
+            mine_thread_u64(difficulty, previous_hash, i, num_threads, result_u64);
             });
         #endif
     
@@ -119,33 +118,7 @@ extern "C" EXPORT void mine_u32(uint32_t difficulty, uint32_t previous_hash, uin
         t.join();
     }
 
-    *out_nonce = result_u32.nonce.load();
-    *out_hash = result_u32.hash.load();
-    *out_hashcount = result_u32.hashcount.load();
-}
-
-int main() {
-    uint32_t difficulty = 0x00000007;
-    uint32_t previous_hash = 0x6;
-
-    uint32_t out_nonce_1 = 0;
-    uint32_t out_nonce_2 = 0;
-
-    uint32_t out_hash_1 = 0;
-    uint32_t out_hash_2 = 0;
-
-    uint32_t out_mhashrate_1 = 0;
-    uint32_t out_mhashrate_2 = 0;
-
-    mine_u32(difficulty, previous_hash, 8, &out_nonce_1, &out_hash_1, &out_mhashrate_1);
-    mine_u32(difficulty, out_hash_1, 8, &out_nonce_2, &out_hash_2, &out_mhashrate_2);
-
-    std::cout << "Chained result_u32: Found hash 0x" << std::hex << out_hash_2
-              << " with nonce " << std::dec << out_nonce_2 << std::endl;
-    std::cout << "Input to previous was hash 0x" << std::hex << out_hash_1
-              << " with nonce to find it " << std::dec << out_nonce_1 << std::endl;
-    std::cout << "Hash counts: " << std::dec << out_mhashrate_1 << " || "
-              << std::dec << out_mhashrate_2 << std::endl;
-
-    return 0;
+    *out_nonce = result_u64.nonce.load();
+    *out_hash = result_u64.hash.load();
+    *out_hashcount = result_u64.hashcount.load();
 }

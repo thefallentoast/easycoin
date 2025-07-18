@@ -93,10 +93,10 @@ EXPORT uint64_t easyhash_u64(uint64_t last_hash, uint64_t nonce) {
         state[3] = eh_b64(v * 2654435761) ^ eh_rol64(eh_b64(v ^ 0x88AAAA88AA8888AA), i);
 
         // Mixing stage
-        state[0] = eh_b32(2654435761UL ^ state[1] * (state[2] & state[3]));
-        state[1] = eh_b32(state[0] * state[2] ^ eh_rol32(state[3], state[1] & 0xF));
-        state[2] = eh_b32(2654435761UL ^ state[3] & (eh_rol32(state[1], state[2] & 0xF)));
-        state[3] = eh_b32(state[3] ^ eh_rol32(2654435761UL, state[2] & 0xF) ^ state[0]);
+        state[0] = eh_b64(2654435761UL ^ state[1] * (state[2] & state[3]));
+        state[1] = eh_b64(state[0] * state[2] ^ eh_rol64(state[3], state[1] & 0xF));
+        state[2] = eh_b64(2654435761UL ^ state[3] & (eh_rol64(state[1], state[2] & 0xF)));
+        state[3] = eh_b64(state[3] ^ eh_rol64(2654435761UL, state[2] & 0xF) ^ state[0]);
     }
 
     return eh_b64(state[0] ^ state[1] ^ state[2] ^ state[3]);
