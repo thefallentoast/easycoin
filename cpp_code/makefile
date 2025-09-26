@@ -14,7 +14,7 @@ OUT_SO = libeasyhash.so
 OUT_DLL = easyhash.dll
 
 # Compiler flags
-CFLAGS = -Ofast -march=native
+CFLAGS = -Ofast
 
 .PHONY: all linux windows windowsdll clean
 
