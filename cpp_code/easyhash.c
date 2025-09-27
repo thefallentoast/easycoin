@@ -1,4 +1,3 @@
-#include <emmintrin.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -72,9 +71,3 @@ EXPORT u64 eh_hashu64(u64 input) {
     return state[0] ^ state[1] ^ state[2] ^ state[3];
 }
 
-
-int main() {
-    u64 result = eh_hashu64(123456789);
-    printf("Hash: %016llx\n", (unsigned long long)result);
-    return 0;
-}
