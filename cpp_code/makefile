@@ -3,9 +3,9 @@ CC = g++
 MINGW_CC = x86_64-w64-mingw32-g++
 SHARED = -shared
 
-# Source files
-SRC = miningloop.cpp easyhash.c
-SRC_HASH = easyhash.c
+# Compiler flags
+CFLAGS = -Ofast
+CFLAGS_SSE2 = -Ofast -msse2
 
 # Output names
 OUT_LINUX = mining_test
@@ -13,24 +13,34 @@ OUT_WIN = mining_test.exe
 OUT_SO = libeasyhash.so
 OUT_DLL = easyhash.dll
 
-# Compiler flags
-CFLAGS = -Ofast
+# Source files
+SRC_DEFAULT = miningloop.cpp easyhash.c
+SRC_SSE2    = fastminingloop.cpp fasteasyhash.cpp
 
-.PHONY: all linux windows windowsdll clean
+.PHONY: all linux linux-sse2 windows windows-sse2 windowsdll clean
 
-all: linux windows windowsdll
+all: linux linux-sse2 windows windows-sse2 windowsdll
 
+# --- Linux ---
 linux:
-	$(CC) $(CFLAGS) $(SRC) -o $(OUT_LINUX)
+	$(CC) $(CFLAGS) $(SRC_DEFAULT) -o $(OUT_LINUX)
 
-windows:
-	$(MINGW_CC) $(CFLAGS) $(SRC) -o $(OUT_WIN) -static-libgcc -static-libstdc++
-
-windowsdll:
-	$(MINGW_CC) $(CFLAGS) $(SHARED) $(SRC) -o $(OUT_DLL) -static-libgcc -static-libstdc++ -static
+linux-sse2:
+	$(CC) $(CFLAGS_SSE2) $(SRC_SSE2) -o $(OUT_LINUX)
 
 linuxso:
-	$(CC) $(CFLAGS) $(SHARED) -fPIC $(SRC) -o $(OUT_SO) 
+	$(CC) $(CFLAGS) $(SHARED) -fPIC $(SRC_DEFAULT) -o $(OUT_SO) 
 
+# --- Windows ---
+windows:
+	$(MINGW_CC) $(CFLAGS) $(SRC_DEFAULT) -o $(OUT_WIN) -static-libgcc -static-libstdc++ -Wl,-subsystem,console
+
+windows-sse2:
+	$(MINGW_CC) $(CFLAGS_SSE2) $(SRC_SSE2) -o $(OUT_WIN) -static-libgcc -static-libstdc++ -Wl,-subsystem,console
+
+windowsdll:
+	$(MINGW_CC) $(CFLAGS) $(SHARED) $(SRC_DEFAULT) -o $(OUT_DLL) -static-libgcc -static-libstdc++ -static
+
+# --- Clean ---
 clean:
-	rm -f $(OUT_LINUX) $(OUT_WIN)
+	rm -f $(OUT_LINUX) $(OUT_WIN) $(OUT_SO) $(OUT_DLL)

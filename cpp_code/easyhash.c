@@ -5,7 +5,7 @@
 #define C K[r]W
 
 #ifdef _WIN32 
-#define EXPORT _declspec(DLLEXPORT)
+#define EXPORT __declspec(DLLEXPORT)
 #else
 #define EXPORT
 #endif
@@ -32,25 +32,25 @@ EXPORT void eh_permute(u64* state) {
     for (int r = 0; r < 4; r++) {
         // First half mixing
         state[0] = state[1] + state[3] ^ C[0] + C[3];
-        state[1] = eh_ror64(state[2], state[3] & 0xF);
-        state[2] = eh_ror64(state[0], state[1]) + C[1] ^ C[2];
+        state[1] = eh_ror64(state[2], 15) + state[3];
+        state[2] = eh_ror64(state[0] ^ state[1], 61) + C[1] ^ C[2];
         state[3] = state[1] ^ state[2] + eh_ror64(state[0], 19);
 
         // Second half mixing
         state[4] = state[5] + state[7] ^ C[0] + C[3];
-        state[5] = eh_ror64(state[6], state[7] & 0xF);
-        state[6] = eh_ror64(state[4], state[5]) + C[1] ^ C[2];
+        state[5] = eh_ror64(state[6], 33);
+        state[6] = eh_ror64(state[4] + state[5], 17) + C[1] ^ C[2];
         state[7] = state[5] ^ state[6] + eh_ror64(state[0], 19);
 
         // Pairwise mixing
-        state[0] = state[0] ^ eh_ror64(state[4], C[0]);
-        state[1] = eh_ror64(state[1] + state[5], eh_ror64(C[1], 37));
-        state[2] = state[2] + state[6] ^ eh_ror64(C[2], state[6]);
-        state[3] = eh_ror64(state[3] ^ state[7], (C[3] ^ state[3]));
-        state[4] = state[4] ^ eh_ror64(state[0], C[0]);
-        state[5] = eh_ror64(state[5] + state[1], eh_ror64(C[1], 37));
-        state[6] = state[6] + state[2] ^ eh_ror64(C[2], state[6]);
-        state[7] = eh_ror64(state[7] ^ state[3], (C[3] ^ state[3]));
+        state[0] = state[0] ^ eh_ror64(state[4], 19) + C[0];
+        state[1] = eh_ror64(state[1] + state[5], 55);
+        state[2] = state[2] + state[6] ^ eh_ror64(C[2] ^ state[6], 7);
+        state[3] = eh_ror64(state[3] ^ state[7], 15) ^ C[3];
+        state[4] = state[4] ^ eh_ror64(state[0], 19) + C[0];
+        state[5] = eh_ror64(state[5] + state[1], 55);
+        state[6] = state[6] + state[2] ^ eh_ror64(C[2] ^ state[6], 7);
+        state[7] = eh_ror64(state[7] ^ state[3], 15) ^ C[3];
     }
 }
 
@@ -68,6 +68,6 @@ EXPORT u64 eh_hashu64(u64 input) {
     for (int round = 0; round < 12; round++) { // Permute rounds
         eh_permute(state);
     }
-    return state[0] ^ state[1] ^ state[2] ^ state[3];
+    return state[0] ^ state[2] ^ state[4] ^ state[6];
 }
 
