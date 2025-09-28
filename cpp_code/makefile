@@ -6,6 +6,7 @@ SHARED = -shared
 # Compiler flags
 CFLAGS = -Ofast
 CFLAGS_SSE2 = -Ofast -msse2
+CFLAGS_AVX2 = -Ofast -mavx2
 
 # Output names
 OUT_LINUX = mining_test
@@ -16,6 +17,7 @@ OUT_DLL = easyhash.dll
 # Source files
 SRC_DEFAULT = miningloop.cpp easyhash.c
 SRC_SSE2    = fastminingloop.cpp fasteasyhash.cpp
+SRC_AVX2    = fasterminingloop.cpp fastereasyhash.cpp
 
 .PHONY: all linux linux-sse2 windows windows-sse2 windowsdll clean
 
@@ -28,6 +30,9 @@ linux:
 linux-sse2:
 	$(CC) $(CFLAGS_SSE2) $(SRC_SSE2) -o $(OUT_LINUX)
 
+linux-avx2:
+	$(CC) $(CFLAGS_AVX2) $(SRC_AVX2) -o $(OUT_LINUX)
+
 linuxso:
 	$(CC) $(CFLAGS) $(SHARED) -fPIC $(SRC_DEFAULT) -o $(OUT_SO) 
 
@@ -37,6 +42,9 @@ windows:
 
 windows-sse2:
 	$(MINGW_CC) $(CFLAGS_SSE2) $(SRC_SSE2) -o $(OUT_WIN) -static-libgcc -static-libstdc++ -Wl,-subsystem,console
+
+windows-avx2:
+	$(MINGW_CC) $(CFLAGS_AVX2) $(SRC_AVX2) -o $(OUT_WIN) -static-libgcc -static-libstdc++ -Wl,-subsystem,console
 
 windowsdll:
 	$(MINGW_CC) $(CFLAGS) $(SHARED) $(SRC_DEFAULT) -o $(OUT_DLL) -static-libgcc -static-libstdc++ -static

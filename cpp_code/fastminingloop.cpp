@@ -74,7 +74,7 @@ MiningResult mine_thread(u64 hash_input, int difficulty_bits, int offset, int in
     auto start_time = std::chrono::high_resolution_clock::now();
 
     u128 hash_function_input = SSE2LOD(hash_input ^ nonce, (hash_input ^ nonce) + 1);
-    u64 mask = ~((1ULL << (64 - difficulty_bits)) - 1);
+    u64 mask = (1ULL << (64 - difficulty_bits)) - 1;
     FoundHash found_hash;
 
     while (!stop_signal.load(std::memory_order_relaxed)) {

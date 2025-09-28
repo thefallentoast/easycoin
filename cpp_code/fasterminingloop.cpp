@@ -6,14 +6,30 @@
 #include <thread>
 #include <vector>
 #include <mutex>
+#include <bitset>
 #include <immintrin.h>
 
+#ifdef __linux__
+#include <csignal>
+#elif defined(_WIN32)
+#include <windows.h>
+#endif
+
 #include "avx2macros.h"
+
+#ifdef _MSC_VER
+#define ALIGN32 __declspec(align(32))
+#else
+#define ALIGN32 __attribute__((aligned(32)))
+#endif
 
 using u64 = uint64_t;
 using u256 = __m256i;
 
 u256 eh_hashu256(u256 input);
+
+std::atomic<bool> global_stop(false);
+std::atomic<bool> stop_signal(false);
 
 struct FoundHash {
     u64 hash;
@@ -27,33 +43,33 @@ struct MiningResult {
     double hashrate; // hashes per second
 };
 
-FoundHash check_difficulty(u256 hashes, u64 mask) {
-    u64 outputs[4];
-    u64 hashes_split[4];
-    AVX2STO(hashes_split, hashes);
-    AVX2STO(outputs, AVX2CGT(AVX2FIL(mask), hashes));
-    if        (outputs[0]) {
-        return {hashes_split[0], 0, true};
-    } else if (outputs[1]) {
-        return {hashes_split[1], 1, true};
-    } else if (outputs[2]) {
-        return {hashes_split[2], 2, true};
-    } else if (outputs[3]) {
-        return {hashes_split[3], 3, true};
-    } else {
-        return {0, 0, false};
+static inline FoundHash check_difficulty(u256 hashes, u64 mask) {
+    ALIGN32 u64 split_hashes[4];
+    u256 filled = AVX2FIL(mask);
+    u256 compared = AVX2CMP(AVX2AND(filled, hashes), AVX2ZERO);
+    int lane_mask = AVX2MOVEMASKPD(AVX2CASTSIPD(compared));
+    //std::cout << std::bitset<4>(lane_mask) << "\n";
+    if (lane_mask != 0) {
+        int idx = __builtin_ctz(lane_mask);
+        AVX2STO(split_hashes, hashes);
+        /*for (int i = 0; i < 4; i++) {
+            std::cout << "Hash " << i << (((lane_mask >> i) & 1) ? " found:" : ":") << " 0x" << std::setw(16) << std::setfill('0') << std::hex << split_hashes[i] << "\n";
+        }*/
+        return {split_hashes[idx], idx, true};
     }
+    return {0, 0, false};
 }
 
 // Note: this function is provided legacy, as it is not used. As such,
 // DEPRECATED (use mine_thread for single-thread and mine_threaded for multiple).
+// This function also lacks some optimizations like loop unrolling present in mine_thread.
 MiningResult mine(u64 hash_input, int difficulty_bits) {
     u64 nonce = 0;
     u64 hashes_done = 0;
     auto start_time = std::chrono::high_resolution_clock::now();
 
     u256 hash_function_input = AVX2LOD(hash_input ^ nonce, (hash_input ^ nonce) + 1, (hash_input ^ nonce) + 2, (hash_input ^ nonce) + 3);
-    u64 mask = ~((1ULL << (64 - difficulty_bits)) - 1);
+    u64 mask = ~(((0xFFFFFFFFFFFFFFFFULL) << (64 - difficulty_bits)) - 1);
     FoundHash found_hash;
 
     while (true) {
@@ -78,23 +94,77 @@ MiningResult mine_thread(u64 hash_input, int difficulty_bits, int offset, int in
     u64 hashes_done = 0;
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    u256 hash_function_input = AVX2LOD(hash_input ^ nonce, (hash_input ^ nonce) + 1, (hash_input ^ nonce) + 2, (hash_input ^ nonce) + 3);
+    u256 hash_function_input = AVX2LOD(hash_input + nonce, hash_input + nonce + 1, hash_input + nonce + 2, hash_input + nonce + 3);
     u64 mask = ~((1ULL << (64 - difficulty_bits)) - 1);
+    //std::cout << "Mask: " << std::setw(16) << std::setfill('0') << std::hex << mask << "\n";
     FoundHash found_hash;
+    u256 hashes;
 
-    while (!stop_signal.load(std::memory_order_relaxed)) {
-        u256 hashes = eh_hashu256(hash_function_input);
-        hashes_done += 4;
+    while (!stop_signal.load(std::memory_order_relaxed) && !global_stop.load(std::memory_order_relaxed)) {
+        
+        // 32 iterations
+        for (int i = 0; i < 32; i++) {
+            // Unroll 4 times
+            hashes = eh_hashu256(hash_function_input);
+            hashes_done += 4;
 
-        if ((found_hash = check_difficulty(hashes, mask)).found) {
-            auto end_time = std::chrono::high_resolution_clock::now();
-            double seconds = std::chrono::duration<double>(end_time - start_time).count();
-            double hashrate = hashes_done / seconds;
+            if ((found_hash = check_difficulty(hashes, mask)).found) {
+                /*std::cout << "Found index: " << found_hash.idx << "\n";
+                std::cout << "Found hash: " << found_hash.hash << "\n";*/
+                auto end_time = std::chrono::high_resolution_clock::now();
+                double seconds = std::chrono::duration<double>(end_time - start_time).count();
+                double hashrate = hashes_done / seconds;
 
-            return {found_hash.hash, nonce + found_hash.idx, hashrate};
+                stop_signal.store(true);
+
+                return {found_hash.hash, nonce + found_hash.idx, hashrate};
+            }
+
+            hash_function_input = AVX2ADD(hash_function_input, AVX2FIL(nonce_increment));
+            hashes = eh_hashu256(hash_function_input);
+            hashes_done += 4;
+
+            if ((found_hash = check_difficulty(hashes, mask)).found) {
+                auto end_time = std::chrono::high_resolution_clock::now();
+                double seconds = std::chrono::duration<double>(end_time - start_time).count();
+                double hashrate = hashes_done / seconds;
+
+                stop_signal.store(true);
+
+                return {found_hash.hash, nonce + found_hash.idx, hashrate};
+            }
+
+            hash_function_input = AVX2ADD(hash_function_input, AVX2FIL(nonce_increment));
+            hashes = eh_hashu256(hash_function_input);
+            hashes_done += 4;
+
+            if ((found_hash = check_difficulty(hashes, mask)).found) {
+                auto end_time = std::chrono::high_resolution_clock::now();
+                double seconds = std::chrono::duration<double>(end_time - start_time).count();
+                double hashrate = hashes_done / seconds;
+
+                stop_signal.store(true);
+
+                return {found_hash.hash, nonce + found_hash.idx, hashrate};
+            }
+
+            hash_function_input = AVX2ADD(hash_function_input, AVX2FIL(nonce_increment));
+            hashes = eh_hashu256(hash_function_input);
+            hashes_done += 4;
+
+            if ((found_hash = check_difficulty(hashes, mask)).found) {
+                auto end_time = std::chrono::high_resolution_clock::now();
+                double seconds = std::chrono::duration<double>(end_time - start_time).count();
+                double hashrate = hashes_done / seconds;
+
+                stop_signal.store(true);
+
+                return {found_hash.hash, nonce + found_hash.idx, hashrate};
+            }
+
+            hash_function_input = AVX2ADD(hash_function_input, AVX2FIL(nonce_increment));
+            
         }
-
-        hash_function_input = AVX2ADD(hash_function_input, AVX2FIL(nonce_increment));
     }
 
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -106,7 +176,6 @@ MiningResult mine_thread(u64 hash_input, int difficulty_bits, int offset, int in
 }
 
 MiningResult mine_threaded(u64 hash_input, int difficulty, int num_threads) {
-    std::atomic<bool> stop_signal(false);
     std::vector<std::thread> threads;
     std::vector<MiningResult> results(num_threads);
 
@@ -137,19 +206,57 @@ MiningResult mine_threaded(u64 hash_input, int difficulty, int num_threads) {
     return final_result;
 }
 
+#ifdef __linux__
+void signal_handler(int signum) {
+    global_stop.store(true);
+    std::cout << "Stopping. \n";
+}
+#elif defined(_WIN32)
+BOOL WINAPI ConsoleHandler(DWORD signal) {
+    if (signal == CTRL_C_EVENT) {
+        global_stop.store(true);
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif
+
 int main() {
-    u64 hash_input = 0x019590326;
-    int difficulty = 24;
+    u64 hash_input = 0xFFFF;
+    int difficulty = 32;
 
-    std::cout << "Mining test\n"; 
+    #ifdef __linux__
+    std::signal(SIGINT, signal_handler);
+    #elif defined(_WIN32)
+    SetConsoleCtrlHandler(ConsoleHandler, TRUE);
+    #endif
 
-    MiningResult result = mine_threaded(hash_input, difficulty, 8);
+    /*std::cout << "Hash test\n";
+    u256 hashes = eh_hashu256(AVX2FIL(hash_input));
+    ALIGN32 u64 hashes_split[4]; AVX2STO(hashes_split, hashes);
+    std::cout << "Raw hashes: ";
+    for (int i = 0; i < 4; i++)
+        std::cout << std::hex << hashes_split[i] << " ";
+    std::cout << "\n";
 
-    std::cout << "Single-threaded: \n";
-    std::cout << "Input:      0x"<< std::setw(16) << std::setfill('0') << std::hex << hash_input << "\n";
-    std::cout << "Found hash: 0x"<< std::setw(16) << std::setfill('0') << std::hex << result.hash << "\n";
-    std::cout << "Nonce: " << std::dec << result.nonce << "\n";
-    std::cout << "Hashrate: " << result.hashrate / 1000000 << " MH/s\n";
+    FoundHash check = check_difficulty(hashes, 0xC000000000000000ULL);
+    std::cout << "Do these fit? " << check.found << "\n";*/
 
+    bool local_stop = false;
+    while (!local_stop) {
+        local_stop = global_stop.load(std::memory_order_relaxed);
+        std::cout << "Mining test\n"; 
+
+        MiningResult result = mine_threaded(hash_input, difficulty, 8);
+
+        std::cout << "Multi-threaded (8): \n";
+        std::cout << "Input:      0x"<< std::setw(16) << std::setfill('0') << std::hex << hash_input << "\n";
+        std::cout << "Found hash: 0x"<< std::setw(16) << std::setfill('0') << std::hex << result.hash << "\n";
+        std::cout << "Nonce: " << std::dec << result.nonce << "\n";
+        std::cout << "Hashrate: " << result.hashrate / 1000000 << " MH/s\n";
+
+        hash_input = result.hash;
+        std::cout << "Should" << (local_stop ? " " : "n't ") << "stop.\n";
+    }
     return 0;
 }
