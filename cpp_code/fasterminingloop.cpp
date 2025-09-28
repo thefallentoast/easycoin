@@ -29,7 +29,6 @@ using u256 = __m256i;
 u256 eh_hashu256(u256 input);
 
 std::atomic<bool> global_stop(false);
-std::atomic<bool> stop_signal(false);
 
 struct FoundHash {
     u64 hash;
@@ -178,6 +177,7 @@ MiningResult mine_thread(u64 hash_input, int difficulty_bits, int offset, int in
 MiningResult mine_threaded(u64 hash_input, int difficulty, int num_threads) {
     std::vector<std::thread> threads;
     std::vector<MiningResult> results(num_threads);
+    std::atomic<bool> stop_signal(false);
 
     for (int i = 0; i < num_threads; i++) {
         threads.emplace_back([&, i]() {
@@ -222,8 +222,8 @@ BOOL WINAPI ConsoleHandler(DWORD signal) {
 #endif
 
 int main() {
-    u64 hash_input = 0xFFFF;
-    int difficulty = 32;
+    u64 hash_input = 0x07895173F;
+    int difficulty = 22;
 
     #ifdef __linux__
     std::signal(SIGINT, signal_handler);
@@ -232,7 +232,7 @@ int main() {
     #endif
 
     /*std::cout << "Hash test\n";
-    u256 hashes = eh_hashu256(AVX2FIL(hash_input));
+    u256 hashes = eh_hashu256(AVX2FIL(0xFFFF));
     ALIGN32 u64 hashes_split[4]; AVX2STO(hashes_split, hashes);
     std::cout << "Raw hashes: ";
     for (int i = 0; i < 4; i++)
@@ -240,7 +240,8 @@ int main() {
     std::cout << "\n";
 
     FoundHash check = check_difficulty(hashes, 0xC000000000000000ULL);
-    std::cout << "Do these fit? " << check.found << "\n";*/
+    std::cout << "Do these fit? " << check.found << "\n";
+    */
 
     bool local_stop = false;
     while (!local_stop) {
@@ -255,7 +256,10 @@ int main() {
         std::cout << "Nonce: " << std::dec << result.nonce << "\n";
         std::cout << "Hashrate: " << result.hashrate / 1000000 << " MH/s\n";
 
+        if ((hash_input == 0) && (result.hash == 0)) return 0;
+
         hash_input = result.hash;
+
         std::cout << "Should" << (local_stop ? " " : "n't ") << "stop.\n";
     }
     return 0;
