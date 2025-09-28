@@ -7,6 +7,10 @@
 #include <vector>
 #include <mutex>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 using u64 = uint64_t;
 
 u64 eh_hashu64(u64 input);
@@ -133,3 +137,7 @@ int main() {
 
     return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif

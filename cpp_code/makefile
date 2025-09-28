@@ -7,6 +7,7 @@ SHARED = -shared
 CFLAGS = -Ofast
 CFLAGS_SSE2 = -Ofast -msse2
 CFLAGS_AVX2 = -Ofast -mavx2
+CFLAGS_AVX512 = -Ofast -mavx512f -mavx512vl
 
 # Output names
 OUT_LINUX = mining_test
@@ -18,10 +19,11 @@ OUT_DLL = easyhash.dll
 SRC_DEFAULT = miningloop.cpp easyhash.c
 SRC_SSE2    = fastminingloop.cpp fasteasyhash.cpp
 SRC_AVX2    = fasterminingloop.cpp fastereasyhash.cpp
+SRC_AVX512  = fastestminingloop.cpp fastesteasyhash.cpp
 
-.PHONY: all linux linux-sse2 windows windows-sse2 windowsdll clean
+.PHONY: all linux linux-sse2 linux-avx2 linux-avx512 windows windows-sse2 windows-avx2 windows-avx512 windowsdll clean
 
-all: linux linux-sse2 windows windows-sse2 windowsdll
+all: linux linux-sse2 linux-avx2 linux-avx512 windows windows-sse2 windows-avx2 windows-avx512 windowsdll clean
 
 # --- Linux ---
 linux:
@@ -32,6 +34,9 @@ linux-sse2:
 
 linux-avx2:
 	$(CC) $(CFLAGS_AVX2) $(SRC_AVX2) -o $(OUT_LINUX)
+
+linux-avx512:
+	$(CC) $(CFLAGS_AVX512) $(SRC_AVX512) -o $(OUT_LINUX)
 
 linuxso:
 	$(CC) $(CFLAGS) $(SHARED) -fPIC $(SRC_DEFAULT) -o $(OUT_SO) 
@@ -45,6 +50,9 @@ windows-sse2:
 
 windows-avx2:
 	$(MINGW_CC) $(CFLAGS_AVX2) $(SRC_AVX2) -o $(OUT_WIN) -static-libgcc -static-libstdc++ -Wl,-subsystem,console
+
+windows-avx512:
+	$(MINGW_CC) $(CFLAGS_AVX512) $(SRC_AVX512) -o $(OUT_WIN) -static-libgcc -static-libstdc++ -Wl,-subsystem,console
 
 windowsdll:
 	$(MINGW_CC) $(CFLAGS) $(SHARED) $(SRC_DEFAULT) -o $(OUT_DLL) -static-libgcc -static-libstdc++ -static

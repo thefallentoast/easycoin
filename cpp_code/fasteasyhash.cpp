@@ -4,6 +4,10 @@
 
 #include "sse2macros.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define W .words
 #define C(x) SSE2FIL(K[r]W[x])
 
@@ -111,3 +115,7 @@ EXPORT u128 eh_hashu128(u128 input) {
     eh_permute128(state);
     return SSE2XOR(SSE2XOR(state[0], state[2]), SSE2XOR(state[4], state[6]));
 }
+
+#ifdef __cplusplus
+}
+#endif

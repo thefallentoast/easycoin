@@ -2,6 +2,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "avx2macros.h"
 
 #define W .words
@@ -111,3 +115,7 @@ EXPORT u256 eh_hashu256(u256 input) {
     eh_permute256(state);
     return AVX2XOR(AVX2XOR(state[0], state[2]), AVX2XOR(state[4], state[6]));
 }
+
+#ifdef __cplusplus
+}
+#endif

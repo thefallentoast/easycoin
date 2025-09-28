@@ -10,6 +10,10 @@
 
 #include "sse2macros.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 using u64 = uint64_t;
 using u128 = __m128i;
 
@@ -148,3 +152,7 @@ int main() {
 
     return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
