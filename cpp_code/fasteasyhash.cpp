@@ -38,7 +38,7 @@ static const u256 K[4] = {
     { .words = {0xd94681a60fdb761f, 0x9174fc91c8cb7be3, 0xa6cbe0eb14ee8ee5, 0xfe62ab0a0cdfb64f}}
 };
 
-EXPORT void eh_permute(u128* state) {
+EXPORT void eh_permute128(u128* state) {
     for (int r = 0; r < 4; r++) {
         // First half mixing
         state[0] = SSE2XOR(SSE2ADD(state[1], state[3]), SSE2ADD(C(0), C(3)));
@@ -80,34 +80,34 @@ EXPORT u128 eh_hashu128(u128 input) {
     state[1] = SSE2XOR(state[1], eh_ror128(input, 11));
     state[2] = SSE2XOR(state[2], eh_ror128(input, 53));
     state[3] = SSE2XOR(state[3], eh_ror128(input, 29));
-    eh_permute(state);
+    eh_permute128(state);
     state[0] = SSE2XOR(state[0], eh_ror128(input, 37));
     state[1] = SSE2XOR(state[1], eh_ror128(input, 11));
     state[2] = SSE2XOR(state[2], eh_ror128(input, 53));
     state[3] = SSE2XOR(state[3], eh_ror128(input, 29));
-    eh_permute(state);
+    eh_permute128(state);
     state[0] = SSE2XOR(state[0], eh_ror128(input, 37));
     state[1] = SSE2XOR(state[1], eh_ror128(input, 11));
     state[2] = SSE2XOR(state[2], eh_ror128(input, 53));
     state[3] = SSE2XOR(state[3], eh_ror128(input, 29));
-    eh_permute(state);
+    eh_permute128(state);
     state[0] = SSE2XOR(state[0], eh_ror128(input, 37));
     state[1] = SSE2XOR(state[1], eh_ror128(input, 11));
     state[2] = SSE2XOR(state[2], eh_ror128(input, 53));
     state[3] = SSE2XOR(state[3], eh_ror128(input, 29));
-    eh_permute(state);
+    eh_permute128(state);
     // Unroll the 12 permute rounds
-    eh_permute(state);
-    eh_permute(state);
-    eh_permute(state);
-    eh_permute(state);
-    eh_permute(state);
-    eh_permute(state);
-    eh_permute(state);
-    eh_permute(state);
-    eh_permute(state);
-    eh_permute(state);
-    eh_permute(state);
-    eh_permute(state);
+    eh_permute128(state);
+    eh_permute128(state);
+    eh_permute128(state);
+    eh_permute128(state);
+    eh_permute128(state);
+    eh_permute128(state);
+    eh_permute128(state);
+    eh_permute128(state);
+    eh_permute128(state);
+    eh_permute128(state);
+    eh_permute128(state);
+    eh_permute128(state);
     return SSE2XOR(SSE2XOR(state[0], state[2]), SSE2XOR(state[4], state[6]));
 }

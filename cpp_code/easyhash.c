@@ -28,7 +28,7 @@ static inline u64 eh_ror64(u64 x, u64 n) {
     return (x >> a) | (x << (64 - a));
 }
 
-EXPORT void eh_permute(u64* state) {
+EXPORT void eh_permute64(u64* state) {
     for (int r = 0; r < 4; r++) {
         // First half mixing
         state[0] = state[1] + state[3] ^ C[0] + C[3];
@@ -63,10 +63,10 @@ EXPORT u64 eh_hashu64(u64 input) {
         state[1] ^= eh_ror64(input, 11);
         state[2] ^= eh_ror64(input, 53);
         state[3] ^= eh_ror64(input, 29);
-        eh_permute(state); // eh_permute modifies state in place
+        eh_permute64(state); // eh_permute64 modifies state in place
     }
     for (int round = 0; round < 12; round++) { // Permute rounds
-        eh_permute(state);
+        eh_permute64(state);
     }
     return state[0] ^ state[2] ^ state[4] ^ state[6];
 }
