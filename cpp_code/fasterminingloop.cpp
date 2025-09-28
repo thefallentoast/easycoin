@@ -102,8 +102,8 @@ MiningResult mine_thread(u64 hash_input, int difficulty_bits, int offset, int in
 
     while (!stop_signal.load(std::memory_order_relaxed) && !global_stop.load(std::memory_order_relaxed)) {
         
-        // 32 iterations
-        for (int i = 0; i < 32; i++) {
+        // 64 iterations (64*4*4=1024 hashes per memory load)
+        for (int i = 0; i < 64; i++) {
             // Unroll 4 times
             hashes = eh_hashu256(hash_function_input);
             hashes_done += 4;
